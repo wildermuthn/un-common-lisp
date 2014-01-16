@@ -4,7 +4,7 @@
 (ql:quickload "cl-json")
 (ql:quickload "local-time")
 (ql:quickload "do-urlencode")
-
+(ql:quickload :marshal)
 
 (defpackage :com.un-common-lisp.random-word
   (:use :common-lisp)
