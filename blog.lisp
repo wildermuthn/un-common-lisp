@@ -65,7 +65,7 @@
 
 (defclass comment ()
    ((comment-id :accessor comment-id :initform (get-comment-id))
-    (post-id :initarg :post-id :accessor post-id :initform (error "Must have post id"))
+    (post-id :initarg :post-id :accessor post-id :initform 1)
     (comment-time :initform (timestamp-to-unix (now)))
     (author :initarg :author :accessor author :initform "anonymous")
     (text :initarg :text :accessor text :initform "")))
@@ -89,13 +89,13 @@
 (defun create-post (&key title summary text author)
   (push (make-instance 'post :title title :summary summary :text text :author author) *posts*))
 
-(defun create-comment (&key author text post-ref-id)
+(defun create-comment (&key author text post-ref)
   (progn
-    (let ((new-comment (make-instance 'comment :author author :text text :post-id post-ref-id)))
+    (let ((new-comment (make-instance 'comment :author author :text text :post-id post-ref)))
       (push new-comment *comments*)
       (dolist (lst *posts* nil)
         (with-slots (post-id comments) lst
-          (if (eq post-ref-id post-id) (push new-comment comments)))))))
+          (if (eq post-ref post-id) (push new-comment comments)))))))
   
 (defun create-random-post ()
   (push (make-instance 'post) *posts*))
@@ -104,11 +104,17 @@
   (progn
     (dotimes (n length n) (create-random-post))))
   
-(defun set-post-timestamp (id timestamp)
+(defun set-post (id &key timestamp comments)
   (dolist (lst *posts* lst)
-    (with-slots (post-id post-time) lst
-      (if (eq post-id id) (setf post-time timestamp)))))
-  
+    (progn
+      (if timestamp
+        (with-slots (post-id post-time) lst
+          (if (eq post-id id) (setf post-time timestamp))))
+      (if (eq comments 0)
+        (with-slots (post-id (com comments)) lst
+          (format t "post-id: ~a~%comments: ~a" post-id com)
+          (if (eq post-id id) (setf com '())))))))
+
 ;; Random post generation utilities
 
 (defun random-word-s (length)
@@ -122,13 +128,13 @@
   (concatenate 'string (random-word (max 3 (random 8))) " " (random-word (max 3 (random 8)))))
 
  
-(hunchentoot:define-easy-handler (get-all-posts-handler :uri "/rest/all-posts") ()
+(hunchentoot:define-easy-handler (some-handler-post :uri "/rest/all-posts") ()
   (setf (hunchentoot:content-type*) "application/json")
   (let* ((request-type (hunchentoot:request-method hunchentoot:*request*)))
     (cond ((eq request-type :get)
            (send-json *posts*)))))
 
-(hunchentoot:define-easy-handler (post-handler :uri "/rest") (verb)
+(hunchentoot:define-easy-handler (create-post-handler :uri "/rest/create-post") ()
   (setf (hunchentoot:content-type*) "application/json")
   (let* ((request-type (hunchentoot:request-method hunchentoot:*request*)))
     (cond  ((eq request-type :post)
@@ -136,6 +142,16 @@
                   (json-obj data-string))
              (setf *sample-post-data* (json:decode-json-from-string data-string))
              (apply #'create-post (post-to-plist (json:decode-json-from-string data-string)))
+             json-obj)))))
+
+(hunchentoot:define-easy-handler (create-post-handler :uri "/rest/create-comment") ()
+  (setf (hunchentoot:content-type*) "application/json")
+  (let* ((request-type (hunchentoot:request-method hunchentoot:*request*)))
+    (cond  ((eq request-type :post)
+           (let* ((data-string (hunchentoot:raw-post-data :force-text t))
+                  (json-obj data-string))
+             (print (post-to-plist (json:decode-json-from-string data-string)))
+             (apply #'create-comment (post-to-plist (json:decode-json-from-string data-string)))
              json-obj)))))
 
 ;; Server io utilities 
