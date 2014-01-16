@@ -4,9 +4,11 @@
 
 (defvar *h-server*) 
 (defvar *posts* ())
+(defvar *comments* ())
 (defvar *saved-posts* ())
 (defvar *sample-post-data*)
 (defvar *post-count* 0)
+(defvar *comment-count* 0)
 
 ;; Save and Restore and Flush Database
 (defun save-db ()
@@ -47,26 +49,53 @@
     (incf *post-count*)
     *post-count*))
 
+(defun get-comment-id ()
+  (progn
+    (incf *comment-count*)
+    *comment-count*))
+
 (defclass post ()
   ((title :initarg :title :accessor title :initform (random-word-s 5))
    (post-id :accessor post-id :initform (get-post-id))
    (post-time :initform (timestamp-to-unix (now)))
    (author :initarg :author :accessor author :initform (random-word-s 2))
+   (comments :initarg :comments :accessor comments :initform '())
    (summary :initarg :summary :accessor summary :initform (random-word-s 25))
    (text :initarg :text :accessor text :initform (random-word-s 200))))
 
+(defclass comment ()
+   ((comment-id :accessor comment-id :initform (get-comment-id))
+    (post-id :initarg :post-id :accessor post-id :initform (error "Must have post id"))
+    (comment-time :initform (timestamp-to-unix (now)))
+    (author :initarg :author :accessor author :initform "anonymous")
+    (text :initarg :text :accessor text :initform "")))
+
 (defmethod ms:class-persistant-slots ((self post))
-  '(title post-id post-time author summary text))
+  '(title post-id post-time author summary text comments))
+
+(defmethod ms:class-persistant-slots ((self comment))
+  '(comment-id comment-time author text post-id))
 
 (defmethod print-object ((object post) stream)
     (print-unreadable-object (object stream :type t)
-          (with-slots (title post-id) object
-                  (format stream "~%title: ~a~%post-id:~a" title post-id))))
+          (with-slots (title post-id comments) object
+                  (format stream "~%title: ~a~%post-id:~a~%comments:~a~%" title post-id comments))))
+
+(defmethod print-object ((object comment) stream)
+    (print-unreadable-object (object stream :type t)
+          (with-slots (comment-id post-id author text) object
+                  (format stream "~%comment: ~a~%post-id:~a ~%author:~a ~%text:~a~%" comment-id post-id author text))))
 
 (defun create-post (&key title summary text author)
+  (push (make-instance 'post :title title :summary summary :text text :author author) *posts*))
+
+(defun create-comment (&key author text post-ref-id)
   (progn
-    (push (make-instance 'post :title title :summary summary :text text :author author) *posts*)
-    (save-db)))
+    (let ((new-comment (make-instance 'comment :author author :text text :post-id post-ref-id)))
+      (push new-comment *comments*)
+      (dolist (lst *posts* nil)
+        (with-slots (post-id comments) lst
+          (if (eq post-ref-id post-id) (push new-comment comments)))))))
   
 (defun create-random-post ()
   (push (make-instance 'post) *posts*))
@@ -93,13 +122,13 @@
   (concatenate 'string (random-word (max 3 (random 8))) " " (random-word (max 3 (random 8)))))
 
  
-(hunchentoot:define-easy-handler (some-handler-post :uri "/rest/all-posts") ()
+(hunchentoot:define-easy-handler (get-all-posts-handler :uri "/rest/all-posts") ()
   (setf (hunchentoot:content-type*) "application/json")
   (let* ((request-type (hunchentoot:request-method hunchentoot:*request*)))
     (cond ((eq request-type :get)
            (send-json *posts*)))))
 
-(hunchentoot:define-easy-handler (some-handler :uri "/rest/create-post") ()
+(hunchentoot:define-easy-handler (post-handler :uri "/rest") (verb)
   (setf (hunchentoot:content-type*) "application/json")
   (let* ((request-type (hunchentoot:request-method hunchentoot:*request*)))
     (cond  ((eq request-type :post)
