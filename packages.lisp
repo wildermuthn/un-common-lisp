@@ -5,6 +5,8 @@
 (ql:quickload "local-time")
 (ql:quickload "do-urlencode")
 (ql:quickload :marshal)
+(ql:quickload :cl-sendmail)
+(ql:quickload :postmodern)
 
 (defpackage :com.un-common-lisp.random-word
   (:use :common-lisp)
@@ -16,4 +18,8 @@
         :cl-json 
         :com.un-common-lisp.random-word 
         :local-time
-        :do-urlencode))
+        :do-urlencode
+        :postmodern))
+
+(setf sendmail::*SENDMAIL* "/usr/sbin/sendmail")
+(postmodern:connect-toplevel "blog" "postgres" "password" "localhost")

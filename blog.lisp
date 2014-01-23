@@ -4,116 +4,109 @@
 
 (defvar *h-server*) 
 (defvar *posts* ())
-(defvar *comments* ())
 (defvar *saved-posts* ())
-(defvar *sample-post-data*)
-(defvar *post-count* 0)
-(defvar *comment-count* 0)
+
+;; postgres class methods and definitions and utilities
+
+(defclass mpost ()
+  ((title :col-type string :initarg :title :accessor title :initform (random-word-s 5))
+   (id :col-type serial :accessor id)
+   (post-time :col-type integer :initform (timestamp-to-unix (now)))
+   (author :col-type string :initarg :author :accessor author :initform (random-word-s 2))
+   (comments :initarg :comments :accessor comments :initform '())
+   (summary :col-type string :initarg :summary :accessor summary :initform (random-word-s 25))
+   (post-text :col-type string :initarg :post-text :accessor post-text :initform (random-word-s 200)))
+   (:metaclass dao-class)
+   (:keys id))
+
+(defclass mcomment ()
+   ((id :col-type serial :accessor id)
+    (post-id :col-type integer :initarg :post-id :accessor post-id)
+    (comment-time :col-type integer :initform (timestamp-to-unix (now)))
+    (author :col-type string :initarg :author :accessor author :initform "anonymous")
+    (post-text :col-type string :initarg :post-text :accessor post-text :initform ""))
+   (:metaclass dao-class)
+   (:keys id post-id))
 
 ;; Save and Restore and Flush Database
+
 (defun save-db ()
   (progn
-    (setf *saved-posts* *posts*)
-    (with-open-file (stream "/srv/blog-db/posts.db" :direction :output :if-exists :supersede)
-      (print (ms:marshal *posts*) stream))) )
-
-(defun load-db ()
-  (with-open-file (s "/srv/blog-db/posts.db")
-    (setf *posts* (loop with eof = (list nil)
-                        for form = (read s nil eof)
-                        until (eq form eof)
-                        collect form into forms
-                        counting t into form-count
-                        finally (return (apply #'ms:unmarshal (values forms form-count)))))))
-    
+    (setf *saved-posts* *posts*)))
+   
 (defun restore-db ()
   (setf *posts* *saved-posts*))
 
 (defun flush-db ()
   (progn
     (save-db)
-    (setf *post-count* 0)
     (setf *posts* ())))
 
-(defun reset-db ()
+(defun reset-db (&key (random nil))
   (progn
     (save-db)
     (flush-db)
-    (populate-db 5)))
+    (reset-mcomment-table)
+    (reset-mpost-table)
+    (if random
+      (postgres-populate-db random))
+    (load-postgres-db)
+    (assign-post-comments)))
 
+(defun postgres-populate-db (a)
+  (progn
+    (dotimes (i a)
+      (insert-dao (make-instance 'mpost)))
+    (dolist (x (select-dao 'mpost 
+                           (:> 'id  0)))
+      (format t "~a~%" (id x)))
+    (dotimes (i a)
+      (insert-dao (make-instance 'mcomment :post-id i)))
+    (dolist (x (select-dao 'mcomment 
+                           (:> 'id  0)))
+      (format t "~a~%" (id x)))))
+
+(defun load-postgres-db ()
+    (setf *posts* (select-dao 'mpost (:> 'id 0))))
+
+(defun reset-mcomment-table ()
+  (progn
+    (query (:drop-table 'mcomment))
+    (execute (dao-table-definition 'mcomment))))
+
+(defun reset-mpost-table ()
+  (progn
+    (query (:drop-table 'mpost))
+    (execute (dao-table-definition 'mpost))))
+
+;; Postgres utilities
+
+(defun get-post-comments (id)
+  (let ((lst (list)))
+    (dolist (i 
+              (query (:select 'mcomment.id :from 'mcomment
+                      :inner-join 'mpost :on (:= 'mpost.id 'mcomment.post-id)
+                      :where (:= 'mcomment.post-id id))))
+      (push (car (select-dao 'mcomment (:= 'id (car i)))) lst))
+    lst))
+
+(defun assign-post-comments ()
+    (dolist (i *posts*)
+      (setf (comments i) (get-post-comments(id i)))))
 
 ;; Class method and definitions and utilities
 
-(defun get-post-id ()
+(defun create-mpost (&key title summary post-text author)
+  (push (make-dao 'mpost :title title :summary summary :post-text post-text :author author) *posts*))
+
+(defun create-mcomment (&key author post-text post-ref)
   (progn
-    (incf *post-count*)
-    *post-count*))
+    (make-dao 'mcomment :author author :post-text post-text :post-id post-ref)
+    (assign-post-comments)))
 
-(defun get-comment-id ()
-  (progn
-    (incf *comment-count*)
-    *comment-count*))
+(defun change-title (new-title post)
+  (setf (title post) new-title))
 
-(defclass post ()
-  ((title :initarg :title :accessor title :initform (random-word-s 5))
-   (post-id :accessor post-id :initform (get-post-id))
-   (post-time :initform (timestamp-to-unix (now)))
-   (author :initarg :author :accessor author :initform (random-word-s 2))
-   (comments :initarg :comments :accessor comments :initform '())
-   (summary :initarg :summary :accessor summary :initform (random-word-s 25))
-   (text :initarg :text :accessor text :initform (random-word-s 200))))
-
-(defclass comment ()
-   ((comment-id :accessor comment-id :initform (get-comment-id))
-    (post-id :initarg :post-id :accessor post-id :initform 1)
-    (comment-time :initform (timestamp-to-unix (now)))
-    (author :initarg :author :accessor author :initform "anonymous")
-    (text :initarg :text :accessor text :initform "")))
-
-(defmethod ms:class-persistant-slots ((self post))
-  '(title post-id post-time author summary text comments))
-
-(defmethod ms:class-persistant-slots ((self comment))
-  '(comment-id comment-time author text post-id))
-
-(defmethod print-object ((object post) stream)
-    (print-unreadable-object (object stream :type t)
-          (with-slots (title post-id comments) object
-                  (format stream "~%title: ~a~%post-id:~a~%comments:~a~%" title post-id comments))))
-
-(defmethod print-object ((object comment) stream)
-    (print-unreadable-object (object stream :type t)
-          (with-slots (comment-id post-id author text) object
-                  (format stream "~%comment: ~a~%post-id:~a ~%author:~a ~%text:~a~%" comment-id post-id author text))))
-
-(defun create-post (&key title summary text author)
-  (push (make-instance 'post :title title :summary summary :text text :author author) *posts*))
-
-(defun create-comment (&key author text post-ref)
-  (progn
-    (let ((new-comment (make-instance 'comment :author author :text text :post-id post-ref)))
-      (push new-comment *comments*)
-      (dolist (lst *posts* nil)
-        (with-slots (post-id comments) lst
-          (if (eq post-ref post-id) (push new-comment comments)))))))
-  
-(defun create-random-post ()
-  (push (make-instance 'post) *posts*))
-  
-(defun populate-db (length)
-  (progn
-    (dotimes (n length n) (create-random-post))))
-  
-(defun set-post (id &key timestamp comments)
-  (dolist (lst *posts* lst)
-    (progn
-      (if timestamp
-        (with-slots (post-id post-time) lst
-          (if (eq post-id id) (setf post-time timestamp))))
-      (if (eq comments 0)
-        (with-slots (post-id (com comments)) lst
-          (format t "post-id: ~a~%comments: ~a" post-id com)
-          (if (eq post-id id) (setf com '())))))))
 
 ;; Random post generation utilities
 
@@ -127,7 +120,8 @@
 (defun two-words () 
   (concatenate 'string (random-word (max 3 (random 8))) " " (random-word (max 3 (random 8)))))
 
- 
+;; Server
+
 (hunchentoot:define-easy-handler (some-handler-post :uri "/rest/all-posts") ()
   (setf (hunchentoot:content-type*) "application/json")
   (let* ((request-type (hunchentoot:request-method hunchentoot:*request*)))
@@ -141,17 +135,17 @@
            (let* ((data-string (hunchentoot:raw-post-data :force-text t))
                   (json-obj data-string))
              (setf *sample-post-data* (json:decode-json-from-string data-string))
-             (apply #'create-post (post-to-plist (json:decode-json-from-string data-string)))
+             (apply #'create-mpost (post-to-plist (json:decode-json-from-string data-string)))
              json-obj)))))
 
-(hunchentoot:define-easy-handler (create-post-handler :uri "/rest/create-comment") ()
+(hunchentoot:define-easy-handler (create-comment-handler :uri "/rest/create-comment") ()
   (setf (hunchentoot:content-type*) "application/json")
   (let* ((request-type (hunchentoot:request-method hunchentoot:*request*)))
     (cond  ((eq request-type :post)
            (let* ((data-string (hunchentoot:raw-post-data :force-text t))
                   (json-obj data-string))
              (print (post-to-plist (json:decode-json-from-string data-string)))
-             (apply #'create-comment (post-to-plist (json:decode-json-from-string data-string)))
+             (apply #'create-mcomment (post-to-plist (json:decode-json-from-string data-string)))
              json-obj)))))
 
 ;; Server io utilities 
@@ -166,12 +160,22 @@
     (push (cdr i) lst))
   (nreverse lst)))
 
+;; Mail function  
+
+(defun send-test-email ()
+  (sendmail:with-email (mail-stream "nate@501creative.com" :from "admin@un-common-lisp.com" :subject "test")
+    (format mail-stream "Hi there!")))
+
 ;; Application utilities
 
 (defun start-server() 
-  (setf *h-server* (hunchentoot:start (make-instance 'hunchentoot:easy-acceptor :port 8080 
-                                                                                :access-log-destination nil))))
+  (setf *h-server* (hunchentoot:start (make-instance 'hunchentoot:easy-acceptor :port 8080))))
   
 (defun stop-server () 
   (hunchentoot:stop *h-server*))
-  
+
+(defun start-database ()
+  (connect-toplevel "blog" "postgres" "password" "localhost"))
+
+(defun stop-database ()
+  (disconnect-toplevel))
