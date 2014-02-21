@@ -5,11 +5,11 @@ angular.module('blogApp')
     $scope.location = $location;
     $scope.postHTML = '';
     $scope.configs = Configs.tinyConfigs;
-    console.log($scope.configs);
     $scope.submit = function() {
-      REST.createPost(
+      REST.createNode(
        {
          title: $scope.title,
+         type: 'post',
          author: 'Nate Wildermuth',
          postText: $scope.text,
          summary: $scope.summary,

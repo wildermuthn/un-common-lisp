@@ -7,15 +7,25 @@ angular.module('blogApp')
 
     var rest = {
       getPosts: function(cb) {
-        $http.get('/rest/all-posts')
-        .success(cb);
+        $http({
+          data: {
+            type: 'post'
+          }, 
+          method: 'POST',
+          url: '/rest/view/node'
+        })
+        .success(function(data){
+          console.log('successful post');
+          console.log(data);
+          cb(data);
+        });
       },
-      createPost: function(data, cb) {
+      createNode: function(data, cb) {
         console.log(data);
         $http({
           data: data, 
           method: 'POST',
-          url: '/rest/create-post'
+          url: '/rest/create/node'
         })
         .success(cb);
       },
@@ -35,8 +45,8 @@ angular.module('blogApp')
       getPosts: function(cb) {
         rest.getPosts(cb);
       },
-      createPost: function(data, cb) {
-        rest.createPost(data,cb);
+      createNode: function(data, cb) {
+        rest.createNode(data,cb);
       },
       createComment: function(data, cb) {
         rest.createComment(data,cb);

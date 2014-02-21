@@ -1,25 +1,19 @@
 (in-package :cl-user)
 
-(ql:quickload "hunchentoot")
-(ql:quickload "cl-json")
-(ql:quickload "local-time")
-(ql:quickload "do-urlencode")
-(ql:quickload :marshal)
+(setf asdf:*central-registry*
+      '(*default-pathname-defaults*
+      #p"/srv/lisp/un-common-lisp/lisp/cl-cms/")) ;; This path will depend on your own system, be sure to end in a slash
+
+(ql:quickload :hunchentoot)
+(ql:quickload :cl-json)
+(ql:quickload :ironclad)
+(ql:quickload :babel)
+(ql:quickload :local-time)
+(ql:quickload :cl-utilities)
 (ql:quickload :cl-sendmail)
-(ql:quickload :postmodern)
+(asdf:load-system :cl-cms) ;; TODO: make cl-cms useful enough for inclusion in QuickLisp
 
-(defpackage :com.un-common-lisp.random-word
-  (:use :common-lisp)
-  (:export :random-word)) 
-
-(defpackage :com.un-common-lisp.blog
-  (:use :common-lisp 
-        :hunchentoot 
-        :cl-json 
-        :com.un-common-lisp.random-word 
-        :local-time
-        :do-urlencode
-        :postmodern))
-
-(setf sendmail::*SENDMAIL* "/usr/sbin/sendmail")
-(postmodern:connect-toplevel "blog" "postgres" "password" "localhost")
+(defpackage :com.un-common-lisp.main
+  (:use :common-lisp
+        :cl-cms
+        :cl-sendmail))

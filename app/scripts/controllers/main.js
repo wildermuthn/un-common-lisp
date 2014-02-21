@@ -7,10 +7,11 @@ angular.module('blogApp')
     $scope.location = $location;
     $scope.posts = {};
     REST.getPosts(function(data) {
+      console.log(data);
       for (var i in data) {
         if (data[i].comments == undefined) data[i].comments = [];
         $scope.comments[data[i].id] = {};
-        data[i].postTime = moment.unix(data[i].postTime).format("MMM Do YYYY");
+        data[i].createdDate = moment.unix(data[i].createdDate).format("MMM Do YYYY");
       }
       console.log(data);
       $scope.posts = data;

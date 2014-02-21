@@ -7,13 +7,14 @@
 
 <div ng-repeat="post in posts">
 	<h1>{{post.title}}</h1>
-	<h5>{{post.postTime}} by {{post.author}}</h5>
+	<h5>{{post.createdDate}} by {{post.author}}</h5>
 	<p class="lead" ng-bind-html="post.summary">
 	</p>
 	<a href ng-click="post.show = !post.show" ng-hide="post.show">Read More <span ng-show="post.comments.length != 0"> - {{post.comments.length}} Comment<span ng-show="post.comments.length != 1">s</span></span></a> 
 	<div ng-show="post.show" class="animate-show-hide">
-		<p ng-bind-html="post.text">
+		<p ng-bind-html="post.postText">
 		</p>
+		<!--
 		<hr>
 		<h3 ng-show="post.comments.length != 0">Comments</h3><BR>
 		<blockquote ng-repeat="comment in post.comments"><h5>{{comment.author}} said,</h5><p ng-bind-html="comment.postText"></p></blockquote>
@@ -35,6 +36,7 @@
 				</form>
 			</div>
 		</div>
+		-->
 	</div>
 	<a href ng-click="post.show = !post.show" ng-show="post.show" class="animate-show-hide">Hide Post</a>
 </div>
