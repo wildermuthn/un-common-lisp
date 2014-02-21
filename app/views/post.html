@@ -1,0 +1,30 @@
+<div class="header">
+<!--
+	<ul class="nav nav-pills pull-right">
+		<li class="active"><a ng-href="#">Home</a></li>
+	</ul>
+-->
+	<h3 class="text-muted" ng-click="location.path('/')">un-common-lisp</h3>
+</div>
+<div class="panel panel-default">
+	<div class="panel-heading">
+		<h3 class="panel-title">Create Post</h3>
+	</div>
+	<div class="panel-body" style="width: 99%">
+		<form role="form">
+			<div class="form-group">
+				<label for="title">Title</label>
+				<input type="text" class="form-control" id="title" placeholder="Enter title" ng-model="title">
+			</div>
+			<div class="form-group">
+				<label for="">Summary</label>
+				<textarea ui-tinymce="configs.options1" ng-model="summary"></textarea>
+			</div>
+			<div class="form-group">
+				<label for="">Body</label>
+				<textarea rows="20" ui-tinymce="configs.options1" ng-model="text"></textarea>
+			</div>
+			<button type="submit" ng-click="submit()" class="btn btn-default">Submit</button>
+		</form>
+	</div>
+</div>

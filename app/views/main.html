@@ -1,0 +1,44 @@
+<div class="header">
+	<ul class="nav nav-pills pull-right hidden-xs hidden-sm">
+		<li class="active"><a ng-href="https://github.com/wildermuthn/un-common-lisp">Github</a></li>
+	</ul>
+	<h3 class="text-muted">un-common-lisp</h3>
+</div>
+
+<div ng-repeat="post in posts">
+	<h1>{{post.title}}</h1>
+	<h5>{{post.postTime}} by {{post.author}}</h5>
+	<p class="lead" ng-bind-html="post.summary">
+	</p>
+	<a href ng-click="post.show = !post.show" ng-hide="post.show">Read More <span ng-show="post.comments.length != 0"> - {{post.comments.length}} Comment<span ng-show="post.comments.length != 1">s</span></span></a> 
+	<div ng-show="post.show" class="animate-show-hide">
+		<p ng-bind-html="post.text">
+		</p>
+		<hr>
+		<h3 ng-show="post.comments.length != 0">Comments</h3><BR>
+		<blockquote ng-repeat="comment in post.comments"><h5>{{comment.author}} said,</h5><p ng-bind-html="comment.postText"></p></blockquote>
+		<div class="panel panel-default">
+			<div class="panel-heading">
+				<h3 class="panel-title">Post Comment</h3>
+			</div>
+			<div class="panel-body" style="width: 99%">
+				<form role="form">
+					<div class="form-group">
+						<label for="title">Name</label>
+						<input type="text" class="form-control" id="" placeholder="Enter your name" ng-model="comments[post.id].author">
+					</div>
+					<div class="form-group">
+						<label for="">Comment</label>
+						<textarea rows="20" ui-tinymce="configs.options2" ng-model="comments[post.id].text"></textarea>
+					</div>
+					<button type="submit" ng-click="submit(post.id)" class="btn btn-default">Submit</button>
+				</form>
+			</div>
+		</div>
+	</div>
+	<a href ng-click="post.show = !post.show" ng-show="post.show" class="animate-show-hide">Hide Post</a>
+</div>
+<BR><BR>
+<div class="footer">
+	<p>Powered with <span ng-click="location.path('/post')">♥</span> by Common Lisp, AngularJS, VIM, Yeoman, NGINX, and wild-abandon.</p>
+</div>
